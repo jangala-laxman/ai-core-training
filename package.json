@@ -1,0 +1,18 @@
+{
+  "name": "nse-ai-core",
+  "version": "1.0.0",
+  "description": "NSE stock prediction — SAP AI Core training + batch inference pipeline",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "train-only": "node -e \"import('./src/destination.js').then(() => import('./src/createConfiguration.js')).then(({createTrainingConfig}) => createTrainingConfig(process.env.TICKERS || 'RELIANCE.NS,TCS.NS,INFY.NS', '30d'))\"",
+    "docker:build:train": "docker build -t nse-trainer:latest ./training",
+    "docker:build:infer": "docker build -t nse-infer:latest ./inference",
+    "docker:build": "npm run docker:build:train && npm run docker:build:infer"
+  },
+  "dependencies": {
+    "@sap-ai-sdk/ai-api": "^1.0.0",
+    "dotenv": "^16.4.5"
+  }
+}

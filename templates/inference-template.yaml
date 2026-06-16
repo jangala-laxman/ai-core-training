@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: nse-model-infer
+  annotations:
+    scenarios.ai.sap.com/description: "Run batch inference using trained NSE model to rank stocks"
+    scenarios.ai.sap.com/name: "NSE Stock Inference"
+    executables.ai.sap.com/description: "Loads trained model, fetches live NSE data, outputs ranked recommendations"
+    executables.ai.sap.com/name: "nse-infer"
+  labels:
+    scenarios.ai.sap.com/id: "nse-stock-scenario"
+    ai.sap.com/version: "1.0.0"
+spec:
+  imagePullSecrets:
+    - name: docker-registry-secret       # name of the secret registered in AI Core
+  entrypoint: infer
+  templates:
+    - name: infer
+      metadata:
+        labels:
+          ai.sap.com/resourcePlan: starter
+      inputs:
+        parameters:
+          - name: tickers
+            default: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
+        artifacts:
+          - name: model
+            path: /tmp/input/nse_model.pkl
+          - name: ticker-map
+            path: /tmp/input/ticker_map.json
+      outputs:
+        artifacts:
+          - name: recommendations
+            path: /tmp/output/recommendations.json
+            archive:
+              none: {}
+      container:
+        image: ghcr.io/jangalasaisrilaxman/nse-infer:latest
+        command: [python, infer.py]
+        env:
+          - name: TICKERS
+            value: "{{inputs.parameters.tickers}}"
+          - name: MODEL_PATH
+            value: /tmp/input/nse_model.pkl
+          - name: TICKER_MAP_PATH
+            value: /tmp/input/ticker_map.json
+          - name: OUTPUT_PATH
+            value: /tmp/output

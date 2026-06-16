@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: nse-model-trainer
+  annotations:
+    scenarios.ai.sap.com/description: "Train NSE stock prediction model on last 30 days of data"
+    scenarios.ai.sap.com/name: "NSE Stock Trainer"
+    executables.ai.sap.com/description: "Fetches NSE data via yfinance, trains RandomForest, saves model artifact"
+    executables.ai.sap.com/name: "nse-trainer"
+  labels:
+    scenarios.ai.sap.com/id: "nse-stock-scenario"
+    ai.sap.com/version: "1.0.0"
+spec:
+  imagePullSecrets:
+    - name: docker-registry-secret       # name of the secret registered in AI Core
+  entrypoint: train
+  templates:
+    - name: train
+      metadata:
+        labels:
+          ai.sap.com/resourcePlan: starter
+      inputs:
+        parameters:
+          - name: tickers
+            default: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
+          - name: period
+            default: "30d"
+      outputs:
+        artifacts:
+          - name: model
+            path: /tmp/output/nse_model.pkl
+            archive:
+              none: {}
+          - name: ticker-map
+            path: /tmp/output/ticker_map.json
+            archive:
+              none: {}
+          - name: model-meta
+            path: /tmp/output/model_meta.json
+            archive:
+              none: {}
+      container:
+        image: ghcr.io/jangalasaisrilaxman/nse-trainer:latest
+        command: [python, train.py]
+        env:
+          - name: TICKERS
+            value: "{{inputs.parameters.tickers}}"
+          - name: PERIOD
+            value: "{{inputs.parameters.period}}"
+          - name: OUTPUT_PATH
+            value: /tmp/output
