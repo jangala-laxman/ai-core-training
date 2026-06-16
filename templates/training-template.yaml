@@ -40,7 +40,7 @@ spec:
             archive:
               none: {}
       container:
-        image: ghcr.io/jangalasaisrilaxman/nse-trainer:latest
+        image: ghcr.io/jangala-laxman/nse-trainer:latest
         command: [python, train.py]
         env:
           - name: TICKERS
