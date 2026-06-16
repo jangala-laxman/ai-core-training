@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_OWNER: jangalasaisrilaxman
+  IMAGE_OWNER: jangala-laxman
 
 jobs:
   build-and-push:
