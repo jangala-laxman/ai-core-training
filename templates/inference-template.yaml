@@ -35,7 +35,7 @@ spec:
             archive:
               none: {}
       container:
-        image: ghcr.io/jangalasaisrilaxman/nse-infer:latest
+        image: ghcr.io/jangala-laxman/nse-infer:latest
         command: [python, infer.py]
         env:
           - name: TICKERS
