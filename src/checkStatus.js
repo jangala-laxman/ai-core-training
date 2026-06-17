@@ -14,15 +14,20 @@ export async function checkExecutionStatus(executionId) {
 }
 
 export async function getExecutionLogs(executionId) {
-  const response = await ExecutionApi.executionGetLogs(
+  const response = await ExecutionApi.kubesubmitV4ExecutionsGetLogs(
     executionId,
-    {},
+    { $top: 200 },
     RESOURCE_GROUP
   ).execute();
 
   console.log(`\n--- Logs for execution ${executionId} ---`);
-  (response.data?.result || []).forEach(entry => {
+  const entries = response?.data?.result ?? response?.result ?? [];
+  entries.forEach(entry => {
     console.log(`[${entry.timestamp}] ${entry.msg}`);
   });
+  if (entries.length === 0) {
+    console.log('(no log entries returned)');
+    console.log('Raw response:', JSON.stringify(response, null, 2));
+  }
   console.log('--- End logs ---\n');
 }

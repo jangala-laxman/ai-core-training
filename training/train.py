@@ -1,79 +1,79 @@
 import os
+import sys
 import json
+import traceback
 import joblib
 import pandas as pd
-import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
+DATA_PATH   = os.environ.get("DATA_PATH",   "/tmp/input/training_data.csv")
 OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/tmp/output")
-TICKERS_ENV = os.environ.get("TICKERS", "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS")
-PERIOD = os.environ.get("PERIOD", "30d")
+TICKERS_ENV = os.environ.get("TICKERS",     "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS")
+PERIOD      = os.environ.get("PERIOD",      "30d")
 
-tickers = [t.strip() for t in TICKERS_ENV.split(",")]
+try:
+    print(f"Reading training data from: {DATA_PATH}")
+    data = pd.read_csv(DATA_PATH, index_col="Date", parse_dates=True)
+    print(f"Loaded {len(data)} rows, columns: {data.columns.tolist()}")
 
-print(f"Fetching {PERIOD} data for {len(tickers)} tickers: {tickers}")
+    tickers = data["Ticker"].unique().tolist()
+    print(f"Tickers in data: {tickers}")
 
-frames = []
-for ticker in tickers:
-    df = yf.download(ticker, period=PERIOD, interval="1d", progress=False)
-    if df.empty:
-        print(f"WARNING: No data for {ticker}, skipping.")
-        continue
+    # Per-ticker feature engineering
+    data["Return"]   = data.groupby("Ticker")["Close"].pct_change()
+    data["HL_Range"] = (data["High"] - data["Low"]) / data["Close"]
+    data["Signal"]   = (
+        data.groupby("Ticker")["Return"]
+            .transform(lambda x: x.shift(-1))
+            .gt(0)
+            .astype(int)
+    )
+    data = data.dropna()
+    data["TickerCode"] = pd.factorize(data["Ticker"])[0]
 
-    df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
-    df.columns = ["Open", "High", "Low", "Close", "Volume"]
-    df["Ticker"] = ticker
-    df["Return"] = df["Close"].pct_change()
-    df["HL_Range"] = (df["High"] - df["Low"]) / df["Close"]
-    df["Signal"] = (df["Return"].shift(-1) > 0).astype(int)
-    frames.append(df)
-    print(f"  {ticker}: {len(df)} rows fetched")
+    print(f"\nTotal training rows: {len(data)}")
+    print(f"Date range: {data.index.min()} to {data.index.max()}")
 
-if not frames:
-    raise RuntimeError("No data fetched for any ticker. Check network or ticker symbols.")
+    FEATURES = ["Open", "High", "Low", "Close", "Volume", "HL_Range", "TickerCode"]
+    X = data[FEATURES]
+    y = data["Signal"]
 
-data = pd.concat(frames).dropna()
-data["TickerCode"] = pd.factorize(data["Ticker"])[0]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-print(f"\nTotal training rows: {len(data)}")
-print(f"Date range: {data.index.min()} to {data.index.max()}")
-print(f"Tickers used: {data['Ticker'].unique().tolist()}")
+    model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
 
-FEATURES = ["Open", "High", "Low", "Close", "Volume", "HL_Range", "TickerCode"]
-X = data[FEATURES]
-y = data["Signal"]
+    accuracy = accuracy_score(y_test, model.predict(X_test))
+    print(f"\nModel accuracy on test set: {accuracy:.4f}")
+    print(f"Feature importances: {dict(zip(FEATURES, model.feature_importances_.round(4)))}")
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    ticker_map = {t: i for i, t in enumerate(data["Ticker"].unique())}
 
-model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
-model.fit(X_train, y_train)
+    os.makedirs(OUTPUT_PATH, exist_ok=True)
+    joblib.dump(model, os.path.join(OUTPUT_PATH, "nse_model.pkl"))
+    with open(os.path.join(OUTPUT_PATH, "ticker_map.json"), "w") as f:
+        json.dump(ticker_map, f)
+    with open(os.path.join(OUTPUT_PATH, "model_meta.json"), "w") as f:
+        json.dump({
+            "accuracy":     round(accuracy, 4),
+            "tickers":      tickers,
+            "features":     FEATURES,
+            "period":       PERIOD,
+            "rows_trained": len(data),
+            "date_range": {
+                "start": str(data.index.min()),
+                "end":   str(data.index.max())
+            }
+        }, f, indent=2)
 
-accuracy = accuracy_score(y_test, model.predict(X_test))
-print(f"\nModel accuracy on test set: {accuracy:.4f}")
-print(f"Feature importances: {dict(zip(FEATURES, model.feature_importances_.round(4)))}")
+    print(f"\nARTIFACT_SAVED: {OUTPUT_PATH}/nse_model.pkl")
+    print(f"TICKER_MAP_SAVED: {OUTPUT_PATH}/ticker_map.json")
+    print(f"META_SAVED: {OUTPUT_PATH}/model_meta.json")
+    print("Training complete.")
 
-ticker_map = {t: i for i, t in enumerate(data["Ticker"].unique())}
-
-os.makedirs(OUTPUT_PATH, exist_ok=True)
-joblib.dump(model, os.path.join(OUTPUT_PATH, "nse_model.pkl"))
-with open(os.path.join(OUTPUT_PATH, "ticker_map.json"), "w") as f:
-    json.dump(ticker_map, f)
-with open(os.path.join(OUTPUT_PATH, "model_meta.json"), "w") as f:
-    json.dump({
-        "accuracy": round(accuracy, 4),
-        "tickers": tickers,
-        "features": FEATURES,
-        "period": PERIOD,
-        "rows_trained": len(data),
-        "date_range": {
-            "start": str(data.index.min()),
-            "end": str(data.index.max())
-        }
-    }, f, indent=2)
-
-print(f"\nARTIFACT_SAVED: {OUTPUT_PATH}/nse_model.pkl")
-print(f"TICKER_MAP_SAVED: {OUTPUT_PATH}/ticker_map.json")
-print(f"META_SAVED: {OUTPUT_PATH}/model_meta.json")
-print("Training complete.")
+except Exception as e:
+    print(f"\nFATAL ERROR: {e}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+    sys.exit(1)

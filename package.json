@@ -12,7 +12,9 @@
     "docker:build": "npm run docker:build:train && npm run docker:build:infer"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
     "@sap-ai-sdk/ai-api": "^1.0.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.6.1",
+    "yahoo-finance2": "^2.11.0"
   }
 }

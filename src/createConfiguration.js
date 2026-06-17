@@ -3,13 +3,15 @@ import { ConfigurationApi } from '@sap-ai-sdk/ai-api';
 const RESOURCE_GROUP = { 'AI-Resource-Group': 'default' };
 const SCENARIO_ID = 'nse-stock-scenario';
 
-export async function createTrainingConfig(tickers, period = '30d') {
+export async function createTrainingConfig(tickers, period = '30d', dataArtifactId) {
   const response = await ConfigurationApi.configurationCreate(
     {
       name: `nse-training-config-${Date.now()}`,
-      executableId: 'nse-trainer',
+      executableId: 'nse-model-trainer',
       scenarioId: SCENARIO_ID,
-      inputArtifactBindings: [],
+      inputArtifactBindings: [
+        { key: 'data', artifactId: dataArtifactId }
+      ],
       parameterBindings: [
         { key: 'tickers', value: tickers },
         { key: 'period',  value: period  }
@@ -26,7 +28,7 @@ export async function createInferenceConfig(modelArtifactId, tickerMapArtifactId
   const response = await ConfigurationApi.configurationCreate(
     {
       name: `nse-inference-config-${Date.now()}`,
-      executableId: 'nse-infer',
+      executableId: 'nse-model-infer',
       scenarioId: SCENARIO_ID,
       inputArtifactBindings: [
         { key: 'model',      artifactId: modelArtifactId     },
