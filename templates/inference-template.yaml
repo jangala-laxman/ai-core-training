@@ -11,6 +11,10 @@ metadata:
     scenarios.ai.sap.com/id: "nse-stock-scenario"
     ai.sap.com/version: "1.0.0"
 spec:
+  arguments:
+    parameters:
+      - name: tickers
+        value: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
   entrypoint: infer
   templates:
     - name: infer
@@ -18,9 +22,6 @@ spec:
         labels:
           ai.sap.com/resourcePlan: starter
       inputs:
-        parameters:
-          - name: tickers
-            default: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
         artifacts:
           - name: model
             path: /tmp/input/nse_model.pkl
@@ -37,7 +38,7 @@ spec:
         command: [python, infer.py]
         env:
           - name: TICKERS
-            value: "{{inputs.parameters.tickers}}"
+            value: "{{workflow.parameters.tickers}}"
           - name: MODEL_PATH
             value: /tmp/input/nse_model.pkl
           - name: TICKER_MAP_PATH

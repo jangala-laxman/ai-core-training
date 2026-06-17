@@ -11,19 +11,20 @@ metadata:
     scenarios.ai.sap.com/id: "nse-stock-scenario"
     ai.sap.com/version: "1.0.0"
 spec:
+  arguments:
+    parameters:
+      - name: tickers
+        value: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
+      - name: period
+        value: "30d"
+      - name: data_url
+        value: ""
   entrypoint: train
   templates:
     - name: train
       metadata:
         labels:
           ai.sap.com/resourcePlan: starter
-      inputs:
-        parameters:
-          - name: tickers
-            default: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
-          - name: period
-            default: "30d"
-          - name: data_url
       outputs:
         artifacts:
           - name: model
@@ -43,10 +44,10 @@ spec:
         command: [python, train.py]
         env:
           - name: DATA_URL
-            value: "{{inputs.parameters.data_url}}"
+            value: "{{workflow.parameters.data_url}}"
           - name: TICKERS
-            value: "{{inputs.parameters.tickers}}"
+            value: "{{workflow.parameters.tickers}}"
           - name: PERIOD
-            value: "{{inputs.parameters.period}}"
+            value: "{{workflow.parameters.period}}"
           - name: OUTPUT_PATH
             value: /tmp/output
