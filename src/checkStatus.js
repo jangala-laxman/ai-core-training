@@ -9,8 +9,15 @@ export async function checkExecutionStatus(executionId) {
     RESOURCE_GROUP
   ).execute();
 
-  console.log(`[${executionId}] Status: ${response.status}`);
-  return response.status;
+  const status = response.status;
+  console.log(`[${executionId}] Status: ${status}`);
+
+  if (status === 'DEAD') {
+    console.log('Execution details:');
+    console.log(JSON.stringify(response, null, 2));
+  }
+
+  return status;
 }
 
 export async function getExecutionLogs(executionId) {

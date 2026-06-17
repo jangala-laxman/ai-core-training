@@ -5,7 +5,7 @@ metadata:
   annotations:
     scenarios.ai.sap.com/description: "Run batch inference using trained NSE model to rank stocks"
     scenarios.ai.sap.com/name: "NSE Stock Inference"
-    executables.ai.sap.com/description: "Loads trained model, fetches live NSE data, outputs ranked recommendations"
+    executables.ai.sap.com/description: "Downloads model from S3, scores latest NSE data, outputs ranked recommendations"
     executables.ai.sap.com/name: "nse-infer"
   labels:
     scenarios.ai.sap.com/id: "nse-stock-scenario"
@@ -15,33 +15,49 @@ spec:
     parameters:
       - name: tickers
         value: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
+      - name: model_s3_key
+        value: ""
+      - name: ticker_map_s3_key
+        value: ""
+      - name: data_url
+        value: ""
   entrypoint: infer
   templates:
     - name: infer
       metadata:
         labels:
           ai.sap.com/resourcePlan: starter
-      inputs:
-        artifacts:
-          - name: model
-            path: /tmp/input/nse_model.pkl
-          - name: ticker-map
-            path: /tmp/input/ticker_map.json
-      outputs:
-        artifacts:
-          - name: recommendations
-            path: /tmp/output/recommendations.json
-            archive:
-              none: {}
       container:
         image: ghcr.io/jangala-laxman/nse-infer:latest
         command: [python, infer.py]
         env:
           - name: TICKERS
             value: "{{workflow.parameters.tickers}}"
-          - name: MODEL_PATH
-            value: /tmp/input/nse_model.pkl
-          - name: TICKER_MAP_PATH
-            value: /tmp/input/ticker_map.json
+          - name: MODEL_S3_KEY
+            value: "{{workflow.parameters.model_s3_key}}"
+          - name: TICKER_MAP_S3_KEY
+            value: "{{workflow.parameters.ticker_map_s3_key}}"
+          - name: DATA_URL
+            value: "{{workflow.parameters.data_url}}"
           - name: OUTPUT_PATH
             value: /tmp/output
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: AWS_SECRET_ACCESS_KEY
+          - name: S3_BUCKET
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: bucket
+          - name: S3_REGION
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: region

@@ -84,29 +84,28 @@ async function main() {
     saveToEnv('TRAINING_EXECUTION_ID', trainingExecutionId);
   }
 
-  // ── Fetch model artifacts ────────────────────────────────────────────────
-  console.log('\n=== STEP 3: Fetch training artifacts ===');
-  const { modelArtifactId, tickerMapArtifactId } = await getTrainingArtifacts(trainingExecutionId);
+  // ── Compute S3 artifact paths from execution ID ──────────────────────────
+  console.log('\n=== STEP 3: Resolve model artifact paths ===');
+  const { modelS3Key, tickerMapS3Key } = getTrainingArtifacts(trainingExecutionId);
 
-  // ── Inference config ─────────────────────────────────────────────────────
-  let inferenceConfigId = process.env.INFERENCE_CONFIG_ID;
-  if (inferenceConfigId) {
-    console.log(`\n=== Reusing inference config: ${inferenceConfigId} ===`);
-  } else {
-    console.log('\n=== STEP 4: Create inference configuration ===');
-    inferenceConfigId = await createInferenceConfig(modelArtifactId, tickerMapArtifactId, TICKERS);
-    saveToEnv('INFERENCE_CONFIG_ID', inferenceConfigId);
-  }
+  // ── Fetch live data for inference & create config (always fresh) ─────────
+  console.log('\n=== STEP 4: Fetch live NSE data for inference ===');
+  const liveRows = await fetchNSEData(tickerList, '5d');
+  const liveCsv  = rowsToCsv(liveRows);
+  const inferDataUrl = await uploadCsvGetPresignedUrl(liveCsv);
 
-  // ── Inference execution (always fresh — gets latest recommendations) ─────
-  console.log('\n=== STEP 5: Trigger inference execution ===');
+  console.log('\n=== STEP 5: Create inference configuration ===');
+  const inferenceConfigId = await createInferenceConfig(modelS3Key, tickerMapS3Key, TICKERS, inferDataUrl);
+
+  // ── Inference execution ──────────────────────────────────────────────────
+  console.log('\n=== STEP 6: Trigger inference execution ===');
   const inferenceExecution = await createExecution(inferenceConfigId);
   await pollUntilDone(inferenceExecution.id, 'Inference');
 
-  console.log('\n=== STEP 6: Fetch inference logs (recommendations) ===');
+  console.log('\n=== STEP 7: Fetch inference logs (recommendations) ===');
   await getExecutionLogs(inferenceExecution.id);
 
-  console.log('\nDone. Check AI Launchpad > Executions for full artifact output.');
+  console.log('\nDone.');
 }
 
 main().catch(err => {

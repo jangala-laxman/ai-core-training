@@ -1,22 +1,10 @@
-import { ArtifactApi } from '@sap-ai-sdk/ai-api';
+const S3_PREFIX = 'nse-ai-core/models';
 
-const RESOURCE_GROUP = { 'AI-Resource-Group': 'default' };
-
-export async function getTrainingArtifacts(executionId) {
-  const response = await ArtifactApi.artifactQuery(
-    { executionId },
-    RESOURCE_GROUP
-  ).execute();
-
-  const artifacts = response.resources || [];
-  console.log(`Found ${artifacts.length} artifact(s) for execution ${executionId}:`);
-  artifacts.forEach(a => console.log(`  - ${a.name}: ${a.id}`));
-
-  const model     = artifacts.find(a => a.name === 'model');
-  const tickerMap = artifacts.find(a => a.name === 'ticker-map');
-
-  if (!model)     throw new Error('model artifact not found after training');
-  if (!tickerMap) throw new Error('ticker-map artifact not found after training');
-
-  return { modelArtifactId: model.id, tickerMapArtifactId: tickerMap.id };
+export function getTrainingArtifacts(executionId) {
+  const prefix = `${S3_PREFIX}/${executionId}`;
+  console.log(`Model artifacts at s3://[bucket]/${prefix}/`);
+  return {
+    modelS3Key:      `${prefix}/nse_model.pkl`,
+    tickerMapS3Key:  `${prefix}/ticker_map.json`
+  };
 }

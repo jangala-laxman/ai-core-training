@@ -23,18 +23,18 @@ export async function createTrainingConfig(tickers, period = '30d', dataUrl) {
   return response.id;
 }
 
-export async function createInferenceConfig(modelArtifactId, tickerMapArtifactId, tickers) {
+export async function createInferenceConfig(modelS3Key, tickerMapS3Key, tickers, dataUrl) {
   const response = await ConfigurationApi.configurationCreate(
     {
       name: `nse-inference-config-${Date.now()}`,
       executableId: 'nse-model-infer',
       scenarioId: SCENARIO_ID,
-      inputArtifactBindings: [
-        { key: 'model',      artifactId: modelArtifactId     },
-        { key: 'ticker-map', artifactId: tickerMapArtifactId }
-      ],
+      inputArtifactBindings: [],
       parameterBindings: [
-        { key: 'tickers', value: tickers }
+        { key: 'tickers',           value: tickers        },
+        { key: 'model_s3_key',      value: modelS3Key     },
+        { key: 'ticker_map_s3_key', value: tickerMapS3Key },
+        { key: 'data_url',          value: dataUrl        }
       ]
     },
     RESOURCE_GROUP

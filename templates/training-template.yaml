@@ -5,7 +5,7 @@ metadata:
   annotations:
     scenarios.ai.sap.com/description: "Train NSE stock prediction model on last 30 days of data"
     scenarios.ai.sap.com/name: "NSE Stock Trainer"
-    executables.ai.sap.com/description: "Downloads pre-fetched NSE data via presigned URL, trains RandomForest, saves model artifact"
+    executables.ai.sap.com/description: "Downloads pre-fetched NSE data via presigned URL, trains RandomForest, uploads artifacts to S3"
     executables.ai.sap.com/name: "nse-trainer"
   labels:
     scenarios.ai.sap.com/id: "nse-stock-scenario"
@@ -25,20 +25,6 @@ spec:
       metadata:
         labels:
           ai.sap.com/resourcePlan: starter
-      outputs:
-        artifacts:
-          - name: model
-            path: /tmp/output/nse_model.pkl
-            archive:
-              none: {}
-          - name: ticker-map
-            path: /tmp/output/ticker_map.json
-            archive:
-              none: {}
-          - name: model-meta
-            path: /tmp/output/model_meta.json
-            archive:
-              none: {}
       container:
         image: ghcr.io/jangala-laxman/nse-trainer:latest
         command: [python, train.py]
@@ -51,3 +37,25 @@ spec:
             value: "{{workflow.parameters.period}}"
           - name: OUTPUT_PATH
             value: /tmp/output
+          - name: S3_KEY_PREFIX
+            value: "nse-ai-core/models/{{workflow.name}}"
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: AWS_SECRET_ACCESS_KEY
+          - name: S3_BUCKET
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: bucket
+          - name: S3_REGION
+            valueFrom:
+              secretKeyRef:
+                name: default-object-store-secret
+                key: region

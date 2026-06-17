@@ -3,17 +3,21 @@ import sys
 import json
 import traceback
 import urllib.request
+import boto3
 import joblib
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-DATA_URL    = os.environ.get("DATA_URL")
-DATA_PATH   = "/tmp/training_data.csv"
-OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/tmp/output")
-TICKERS_ENV = os.environ.get("TICKERS", "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS")
-PERIOD      = os.environ.get("PERIOD", "30d")
+DATA_URL      = os.environ.get("DATA_URL")
+DATA_PATH     = "/tmp/training_data.csv"
+OUTPUT_PATH   = os.environ.get("OUTPUT_PATH", "/tmp/output")
+S3_BUCKET     = os.environ.get("S3_BUCKET")
+S3_KEY_PREFIX = os.environ.get("S3_KEY_PREFIX", "nse-ai-core/models/default")
+S3_REGION     = os.environ.get("S3_REGION", "us-east-1")
+TICKERS_ENV   = os.environ.get("TICKERS", "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS")
+PERIOD        = os.environ.get("PERIOD", "30d")
 
 try:
     if not DATA_URL:
@@ -48,7 +52,6 @@ try:
     y = data["Signal"]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
     model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
     model.fit(X_train, y_train)
 
@@ -69,15 +72,20 @@ try:
             "features":     FEATURES,
             "period":       PERIOD,
             "rows_trained": len(data),
-            "date_range": {
-                "start": str(data.index.min()),
-                "end":   str(data.index.max())
-            }
+            "date_range": {"start": str(data.index.min()), "end": str(data.index.max())}
         }, f, indent=2)
+
+    if S3_BUCKET:
+        print(f"\nUploading artifacts to s3://{S3_BUCKET}/{S3_KEY_PREFIX}/")
+        s3 = boto3.client("s3", region_name=S3_REGION)
+        for filename in ["nse_model.pkl", "ticker_map.json", "model_meta.json"]:
+            s3.upload_file(os.path.join(OUTPUT_PATH, filename), S3_BUCKET, f"{S3_KEY_PREFIX}/{filename}")
+            print(f"  Uploaded: {S3_KEY_PREFIX}/{filename}")
+    else:
+        print("WARNING: S3_BUCKET not set, skipping S3 upload")
 
     print(f"\nARTIFACT_SAVED: {OUTPUT_PATH}/nse_model.pkl")
     print(f"TICKER_MAP_SAVED: {OUTPUT_PATH}/ticker_map.json")
-    print(f"META_SAVED: {OUTPUT_PATH}/model_meta.json")
     print("Training complete.")
 
 except Exception as e:
