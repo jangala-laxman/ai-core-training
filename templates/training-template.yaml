@@ -5,7 +5,7 @@ metadata:
   annotations:
     scenarios.ai.sap.com/description: "Train NSE stock prediction model on last 30 days of data"
     scenarios.ai.sap.com/name: "NSE Stock Trainer"
-    executables.ai.sap.com/description: "Reads pre-fetched NSE data artifact, trains RandomForest, saves model artifact"
+    executables.ai.sap.com/description: "Downloads pre-fetched NSE data via presigned URL, trains RandomForest, saves model artifact"
     executables.ai.sap.com/name: "nse-trainer"
   labels:
     scenarios.ai.sap.com/id: "nse-stock-scenario"
@@ -23,9 +23,7 @@ spec:
             default: "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS"
           - name: period
             default: "30d"
-        artifacts:
-          - name: data
-            path: /tmp/input/training_data.csv
+          - name: data_url
       outputs:
         artifacts:
           - name: model
@@ -44,8 +42,8 @@ spec:
         image: ghcr.io/jangala-laxman/nse-trainer:latest
         command: [python, train.py]
         env:
-          - name: DATA_PATH
-            value: /tmp/input/training_data.csv
+          - name: DATA_URL
+            value: "{{inputs.parameters.data_url}}"
           - name: TICKERS
             value: "{{inputs.parameters.tickers}}"
           - name: PERIOD

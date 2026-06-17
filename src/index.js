@@ -1,6 +1,6 @@
 import './destination.js';
 import { fetchNSEData, rowsToCsv } from './fetchData.js';
-import { uploadCsvAndRegisterArtifact } from './uploadAndRegister.js';
+import { uploadCsvGetPresignedUrl } from './uploadAndRegister.js';
 import { createTrainingConfig, createInferenceConfig } from './createConfiguration.js';
 import { createExecution } from './createExecution.js';
 import { checkExecutionStatus, getExecutionLogs } from './checkStatus.js';
@@ -39,27 +39,37 @@ async function pollUntilDone(executionId, label) {
 async function main() {
   const tickerList = TICKERS.split(',');
 
-  // Step 0: Fetch data locally and upload as artifact
-  console.log('\n=== STEP 0: Fetch NSE data locally & upload to S3 ===');
-  const rows = await fetchNSEData(tickerList, PERIOD);
-  const csv  = rowsToCsv(rows);
-  const dataArtifactId = await uploadCsvAndRegisterArtifact(csv);
+  // ── Training config ──────────────────────────────────────────────────────
+  let trainingConfigId = process.env.TRAINING_CONFIG_ID;
 
-  // Step 1: Train
-  console.log('\n=== STEP 1: Create training configuration ===');
-  const trainingConfigId = await createTrainingConfig(TICKERS, PERIOD, dataArtifactId);
+  if (trainingConfigId) {
+    console.log(`\n=== Using existing training config: ${trainingConfigId} ===`);
+    console.log('(Skipping data fetch and config creation — using TRAINING_CONFIG_ID from .env)');
+  } else {
+    console.log('\n=== STEP 0: Fetch NSE data locally & upload to S3 ===');
+    const rows = await fetchNSEData(tickerList, PERIOD);
+    const csv  = rowsToCsv(rows);
+    const dataUrl = await uploadCsvGetPresignedUrl(csv);
 
+    console.log('\n=== STEP 1: Create training configuration ===');
+    trainingConfigId = await createTrainingConfig(TICKERS, PERIOD, dataUrl);
+    console.log(`\n>> Save this to .env to reuse: TRAINING_CONFIG_ID=${trainingConfigId}`);
+  }
+
+  // ── Training execution ───────────────────────────────────────────────────
   console.log('\n=== STEP 2: Trigger training execution ===');
   const trainingExecution = await createExecution(trainingConfigId);
   await pollUntilDone(trainingExecution.id, 'Training');
 
+  // ── Fetch model artifacts ────────────────────────────────────────────────
   console.log('\n=== STEP 3: Fetch training artifacts ===');
   const { modelArtifactId, tickerMapArtifactId } = await getTrainingArtifacts(trainingExecution.id);
 
-  // Step 2: Infer
+  // ── Inference config (always fresh — depends on this run's model) ────────
   console.log('\n=== STEP 4: Create inference configuration ===');
   const inferenceConfigId = await createInferenceConfig(modelArtifactId, tickerMapArtifactId, TICKERS);
 
+  // ── Inference execution ──────────────────────────────────────────────────
   console.log('\n=== STEP 5: Trigger inference execution ===');
   const inferenceExecution = await createExecution(inferenceConfigId);
   await pollUntilDone(inferenceExecution.id, 'Inference');

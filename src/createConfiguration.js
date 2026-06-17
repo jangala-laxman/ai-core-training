@@ -3,18 +3,17 @@ import { ConfigurationApi } from '@sap-ai-sdk/ai-api';
 const RESOURCE_GROUP = { 'AI-Resource-Group': 'default' };
 const SCENARIO_ID = 'nse-stock-scenario';
 
-export async function createTrainingConfig(tickers, period = '30d', dataArtifactId) {
+export async function createTrainingConfig(tickers, period = '30d', dataUrl) {
   const response = await ConfigurationApi.configurationCreate(
     {
       name: `nse-training-config-${Date.now()}`,
       executableId: 'nse-model-trainer',
       scenarioId: SCENARIO_ID,
-      inputArtifactBindings: [
-        { key: 'data', artifactId: dataArtifactId }
-      ],
+      inputArtifactBindings: [],
       parameterBindings: [
-        { key: 'tickers', value: tickers },
-        { key: 'period',  value: period  }
+        { key: 'tickers',  value: tickers  },
+        { key: 'period',   value: period   },
+        { key: 'data_url', value: dataUrl  }
       ]
     },
     RESOURCE_GROUP

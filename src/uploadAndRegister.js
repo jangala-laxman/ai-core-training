@@ -1,15 +1,12 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { ArtifactApi } from '@sap-ai-sdk/ai-api';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const RESOURCE_GROUP = { 'AI-Resource-Group': 'default' };
-const SCENARIO_ID = 'nse-stock-scenario';
-
-export async function uploadCsvAndRegisterArtifact(csvContent) {
+export async function uploadCsvGetPresignedUrl(csvContent) {
   const bucket = process.env.OBJECT_STORE_BUCKET;
   const region = process.env.OBJECT_STORE_REGION || 'us-east-1';
-  const s3Key = `nse-ai-core/datasets/training_data_${Date.now()}.csv`;
+  const s3Key  = `nse-ai-core/datasets/training_data_${Date.now()}.csv`;
 
-  if (!bucket) throw new Error('OBJECT_STORE_BUCKET env var not set');
+  if (!bucket)                            throw new Error('OBJECT_STORE_BUCKET env var not set');
   if (!process.env.OBJECT_STORE_ACCESS_KEY) throw new Error('OBJECT_STORE_ACCESS_KEY env var not set');
 
   const s3 = new S3Client({
@@ -29,18 +26,12 @@ export async function uploadCsvAndRegisterArtifact(csvContent) {
   }));
   console.log('S3 upload complete.');
 
-  const url = `s3://${bucket}/${s3Key}`;
-  const artifact = await ArtifactApi.artifactCreate(
-    {
-      name:        `nse-training-data-${Date.now()}`,
-      kind:        'dataset',
-      url,
-      scenarioId:  SCENARIO_ID,
-      description: 'NSE stock historical OHLCV data'
-    },
-    RESOURCE_GROUP
-  ).execute();
-
-  console.log(`Artifact registered: ${artifact.id} → ${url}`);
-  return artifact.id;
+  // Presigned URL valid 24 h — enough time for training execution to download it
+  const presignedUrl = await getSignedUrl(
+    s3,
+    new GetObjectCommand({ Bucket: bucket, Key: s3Key }),
+    { expiresIn: 86400 }
+  );
+  console.log('Presigned download URL generated (valid 24 h).');
+  return presignedUrl;
 }

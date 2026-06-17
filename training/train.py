@@ -2,26 +2,33 @@ import os
 import sys
 import json
 import traceback
+import urllib.request
 import joblib
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-DATA_PATH   = os.environ.get("DATA_PATH",   "/tmp/input/training_data.csv")
+DATA_URL    = os.environ.get("DATA_URL")
+DATA_PATH   = "/tmp/training_data.csv"
 OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/tmp/output")
-TICKERS_ENV = os.environ.get("TICKERS",     "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS")
-PERIOD      = os.environ.get("PERIOD",      "30d")
+TICKERS_ENV = os.environ.get("TICKERS", "RELIANCE.NS,TCS.NS,INFY.NS,HDFCBANK.NS,WIPRO.NS,LT.NS,ICICIBANK.NS,SBIN.NS")
+PERIOD      = os.environ.get("PERIOD", "30d")
 
 try:
-    print(f"Reading training data from: {DATA_PATH}")
+    if not DATA_URL:
+        raise RuntimeError("DATA_URL environment variable is not set")
+
+    print(f"Downloading training data from presigned URL...")
+    urllib.request.urlretrieve(DATA_URL, DATA_PATH)
+    print(f"Download complete: {DATA_PATH}")
+
     data = pd.read_csv(DATA_PATH, index_col="Date", parse_dates=True)
     print(f"Loaded {len(data)} rows, columns: {data.columns.tolist()}")
 
     tickers = data["Ticker"].unique().tolist()
     print(f"Tickers in data: {tickers}")
 
-    # Per-ticker feature engineering
     data["Return"]   = data.groupby("Ticker")["Close"].pct_change()
     data["HL_Range"] = (data["High"] - data["Low"]) / data["Close"]
     data["Signal"]   = (
