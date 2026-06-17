@@ -11,8 +11,6 @@ metadata:
     scenarios.ai.sap.com/id: "nse-stock-scenario"
     ai.sap.com/version: "1.0.0"
 spec:
-  imagePullSecrets:
-    - name: docker-registry-secret       # name of the secret registered in AI Core
   entrypoint: train
   templates:
     - name: train
